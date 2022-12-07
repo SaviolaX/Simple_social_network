@@ -1,2 +1,2 @@
-# Simple_social_network
+# Simple social network
 Social network
