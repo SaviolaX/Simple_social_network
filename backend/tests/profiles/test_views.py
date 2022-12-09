@@ -109,6 +109,17 @@ def test_login_with_no_password() -> None:
     assert res.data['error'] == 'password is required'
     assert res.status_code == 400
     
+@pytest.mark.django_db
+def test_login_if_user_is_authenticated(user_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    client.post(reverse('register'), user_payload, format='json')
+    assert len(Profile.objects.all()) == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.post(reverse('login'), created_user, format='json')
+    assert res.data['detail'] == 'You do not have permission to perform this action.'
+    assert res.status_code == 403
+    
 # logout view
 @pytest.mark.django_db
 def test_logout_if_user_logged_in(user_payload: dict) -> None:
@@ -124,5 +135,5 @@ def test_logout_if_user_logged_in(user_payload: dict) -> None:
 @pytest.mark.django_db
 def test_logout_if_user_not_logged_in() -> None:
     res = client.get(reverse('logout'))
-    assert res.data['message'] == 'You are not logged in'
-    assert res.status_code == 400
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
