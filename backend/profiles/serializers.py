@@ -11,6 +11,15 @@ class ProfileSerializer(ModelSerializer):
         model = Profile
         fields = ('id', 'email', 'username')
         
+class LoginProfileSerializer(ModelSerializer):
+    """ Serializer for Profile login """
+    email = CharField(max_length=255, required=True)
+    password = CharField(max_length=255, write_only=True, required=True)
+    class Meta:
+        model = Profile
+        fields = ('id', 'email', 'password')
+    
+
 
 class RegisterProfileSerializer(ModelSerializer):
     """ Serializer for Profile registration """
@@ -35,7 +44,7 @@ class RegisterProfileSerializer(ModelSerializer):
         # validate email
         splited_email = [x for x in data['email']]
         if '@' not in splited_email:
-            raise ValidationError({'error':'Invalid email'})
+            raise ValidationError({'error':'Invalid email format'})
             
         # check for password min length
         if len(data['password']) < 6:
@@ -58,4 +67,8 @@ class RegisterProfileSerializer(ModelSerializer):
             password=data['password']
         )
         return validated_data
+    
+    def create(self, validated_data):
+        new_user = Profile.objects.create_user(**validated_data)
+        return new_user
             
