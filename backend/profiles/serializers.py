@@ -1,9 +1,13 @@
 from rest_framework.serializers import ModelSerializer, CharField, ValidationError
-from rest_framework import status
-from rest_framework.response import Response
 
 from .models import Profile
 
+
+class ProfileUpdateSerializer(ModelSerializer):
+    """ Serializer for Profile """
+    class Meta:
+        model = Profile
+        fields = ('id', 'email', 'username', 'image')
 
 class ProfileSerializer(ModelSerializer):
     """ Serializer for Profile """
@@ -19,7 +23,6 @@ class LoginProfileSerializer(ModelSerializer):
         model = Profile
         fields = ('id', 'email', 'password')
     
-
 
 class RegisterProfileSerializer(ModelSerializer):
     """ Serializer for Profile registration """
@@ -69,6 +72,7 @@ class RegisterProfileSerializer(ModelSerializer):
         return validated_data
     
     def create(self, validated_data):
+        """ Default 'create' view changed for hashing password """
         new_user = Profile.objects.create_user(**validated_data)
         return new_user
             

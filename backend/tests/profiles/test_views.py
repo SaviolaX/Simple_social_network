@@ -1,4 +1,9 @@
 import pytest
+import sys, shutil, os
+from django.conf import settings
+from io import BytesIO 
+from PIL import Image
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -8,10 +13,29 @@ client = APIClient()
 
 
 @pytest.fixture
+def temporary_image() -> bytes:
+    io = BytesIO()
+    size = (200,200)
+    color = (255,0,0,0)
+    image = Image.new("RGB", size, color)
+    image.save(io, format='JPEG')
+    image_file = InMemoryUploadedFile(io, None, 'foo.jpg', 'jpeg', sys.getsizeof(io), None)
+    image_file.seek(0)
+    return image_file
+
+
+@pytest.fixture
 def user_payload() -> dict:
     payload = dict(email='test_user@email.com',
                    password='test_pass',
                    confirm_password='test_pass')
+    return payload
+
+@pytest.fixture
+def user2_payload() -> dict:
+    payload = dict(email='test_user2@email.com',
+                   password='test_pass2',
+                   confirm_password='test_pass2')
     return payload
 
 
@@ -137,3 +161,114 @@ def test_logout_if_user_not_logged_in() -> None:
     res = client.get(reverse('logout'))
     assert res.data['detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
+    
+# detail view
+@pytest.mark.django_db
+def test_detail_view_not_logged_in() -> None:
+    res = client.get(reverse('profile_detail', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    
+@pytest.mark.django_db
+def test_detail_logged_in(user_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    client.post(reverse('register'), user_payload, format='json')
+    assert len(Profile.objects.all()) == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('profile_detail', kwargs={'pk': 1}))
+    assert res.data['id'] == 1
+    assert res.data['email'] == user_payload['email']
+    assert res.data['username'] == user_payload['email'].split('@')[0]
+
+@pytest.mark.django_db
+def test_detail_another_user_profile_logged_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    client.post(reverse('register'), user_payload, format='json')
+    client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('profile_detail', kwargs={'pk': 1}))
+    assert res.data['id'] == 1
+    assert res.data['email'] == user_payload['email']
+    assert res.data['username'] == user_payload['email'].split('@')[0]
+
+# update view
+# put request
+@pytest.mark.django_db
+def test_update_view_not_logged_in_put_req() -> None:
+    res = client.put(reverse('profile_update', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+
+# patch request
+@pytest.mark.django_db
+def test_update_view_not_logged_in_patch_req() -> None:
+    res = client.patch(reverse('profile_update', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+
+# get request
+@pytest.mark.django_db
+def test_update_view_not_logged_in_get_req() -> None:
+    res = client.get(reverse('profile_update', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    
+@pytest.mark.django_db
+def test_update_view_logged_in_as_owner_put_request(user_payload: dict, temporary_image: bytes) -> None:
+    assert len(Profile.objects.all()) == 0
+    client.post(reverse('register'), user_payload, format='json')
+    assert len(Profile.objects.all()) == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    get_res = client.get(reverse('profile_update', kwargs={'pk': 1}))
+    assert get_res.data['id'] == 1
+    assert get_res.data['email'] == user_payload['email']
+    assert get_res.data['username'] == user_payload['email'].split('@')[0]
+    assert get_res.data['image'] == None
+    update_profile = dict(
+        email=user_payload['email'],
+        username=user_payload['email'].split('@')[0],
+        image=temporary_image
+    )
+    put_res = client.put(reverse('profile_update', kwargs={'pk': 1}), update_profile, format='multipart')
+    assert put_res.data['id'] == 1
+    assert put_res.data['email'] == user_payload['email']
+    assert put_res.data['username'] == user_payload['email'].split('@')[0]
+    assert put_res.data['image'] != None
+    delete_all_testing_files(user_payload['email'])
+    
+
+@pytest.mark.django_db
+def test_update_view_logged_in_as_owner_patch_request(user_payload: dict, temporary_image: bytes) -> None:
+    assert len(Profile.objects.all()) == 0
+    client.post(reverse('register'), user_payload, format='json')
+    assert len(Profile.objects.all()) == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    get_res = client.get(reverse('profile_update', kwargs={'pk': 1}))
+    assert get_res.data['id'] == 1
+    assert get_res.data['email'] == user_payload['email']
+    assert get_res.data['username'] == user_payload['email'].split('@')[0]
+    assert get_res.data['image'] == None
+    update_profile = dict(
+        image=temporary_image
+    )
+    put_res = client.patch(reverse('profile_update', kwargs={'pk': 1}), update_profile, format='multipart')
+    assert put_res.data['id'] == 1
+    assert put_res.data['email'] == user_payload['email']
+    assert put_res.data['username'] == user_payload['email'].split('@')[0]
+    assert put_res.data['image'] != None
+    delete_all_testing_files(user_payload['email']) 
+    
+
+def delete_all_testing_files(profile_email: str) -> None:
+    """Delete test files from media"""
+    try:
+        path_to_profile_images = os.path.join(settings.MEDIA_ROOT, f'profile\\{profile_email}')
+        shutil.rmtree(path_to_profile_images, ignore_errors=True)
+    except OSError:
+        pass
+
