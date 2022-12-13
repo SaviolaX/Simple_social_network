@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from profiles.models import Profile
+from profiles.models import Profile, FriendRequest
 
 client = APIClient()
 
@@ -263,6 +263,192 @@ def test_update_view_logged_in_as_owner_patch_request(user_payload: dict, tempor
     assert put_res.data['image'] != None
     delete_all_testing_files(user_payload['email']) 
     
+
+# friend request
+@pytest.mark.django_db
+def test_friend_request_not_logged_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    req = client.post(reverse('send_friend_request', kwargs={'sender_pk': user1.data['id'], 'receiver_pk': user2.data['id']}), format='json')
+    assert req.data['detail'] == 'Authentication credentials were not provided.'
+    assert req.status_code == 403
+    
+@pytest.mark.django_db
+def test_friend_request_already_created_by_user1(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    FriendRequest.objects.create(
+        sender=Profile.objects.filter(id=user1.data['id']).first(), 
+        receiver=Profile.objects.filter(id=user2.data['id']).first()
+    )
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req_payload = dict(
+        sender=user1.data['id'], 
+        receiver=user2.data['id']
+    )
+    req = client.post(reverse('send_friend_request', kwargs={'sender_pk': user1.data['id'], 'receiver_pk': user2.data['id']}), req_payload, format='json')
+    assert req.data['message'][0] == 'Request has sent already'
+    assert req.status_code == 400
+    
+
+@pytest.mark.django_db
+def test_friend_request_already_created_by_user2(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    FriendRequest.objects.create(
+        sender=Profile.objects.filter(id=user1.data['id']).first(), 
+        receiver=Profile.objects.filter(id=user2.data['id']).first()
+    )
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req_payload = dict(
+        sender=user2.data['id'], 
+        receiver=user1.data['id']
+    )
+    req = client.post(reverse('send_friend_request', kwargs={'sender_pk': user2.data['id'], 'receiver_pk': user1.data['id']}), req_payload, format='json')
+    assert req.data['message'][0] == 'The user has sent request to you already'
+    assert req.status_code == 400
+    
+    
+
+@pytest.mark.django_db
+def test_friend_request_with_data_logged_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req_payload = dict(
+        sender=user1.data['id'], 
+        receiver=user2.data['id']
+    )
+    req = client.post(reverse('send_friend_request', kwargs={'sender_pk': user1.data['id'], 'receiver_pk': user2.data['id']}), req_payload, format='json')
+    assert req.data['id'] == 1
+    assert req.data['sender'] == req_payload['sender']
+    assert req.data['receiver'] == req_payload['receiver']
+    assert req.status_code == 201
+    
+@pytest.mark.django_db
+def test_friend_request_with_no_data_logged_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req = client.post(reverse('send_friend_request', kwargs={'sender_pk': user1.data['id'], 'receiver_pk': user2.data['id']}), format='json')
+    assert req.data['sender'][0] == 'This field is required.'
+    assert req.data['receiver'][0] == 'This field is required.'
+    assert req.status_code == 400
+
+@pytest.mark.django_db
+def test_friend_request_accept_loggen_in_as_receiver(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req = client.get(reverse('accept_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['message'] == f'{f_req.sender.username} added to your friend list.'
+    assert req.status_code == 200
+    
+@pytest.mark.django_db
+def test_friend_request_accept_not_loggen_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    req = client.get(reverse('accept_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['detail'] == 'Authentication credentials were not provided.'
+    assert req.status_code == 403
+    
+@pytest.mark.django_db
+def test_friend_request_accept_loggen_in_not_receiver(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req = client.get(reverse('accept_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['message'] == 'You can not perform this action.'
+    assert req.status_code == 403
+    
+    
+@pytest.mark.django_db
+def test_friend_request_refuse_loggen_in_as_receiver(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req = client.get(reverse('refuse_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['message'] == 'Friend request was refused.'
+    assert req.status_code == 200
+    
+@pytest.mark.django_db
+def test_friend_request_refuse_not_loggen_in(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    req = client.get(reverse('refuse_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['detail'] == 'Authentication credentials were not provided.'
+    assert req.status_code == 403
+    
+@pytest.mark.django_db
+def test_friend_request_refuse_loggen_in_not_receiver(user_payload: dict, user2_payload: dict) -> None:
+    assert len(Profile.objects.all()) == 0
+    user1 = client.post(reverse('register'), user_payload, format='json')
+    user2 = client.post(reverse('register'), user2_payload, format='json')
+    assert len(Profile.objects.all()) == 2
+    f_req = FriendRequest.objects.create(
+        sender=Profile.objects.get(id=user2.data['id']),
+        receiver=Profile.objects.get(id=user1.data['id'])
+    )
+    assert FriendRequest.objects.all().count() == 1
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    req = client.get(reverse('refuse_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
+    assert req.data['message'] == 'You can not perform this action.'
+    assert req.status_code == 403
+
+
 
 def delete_all_testing_files(profile_email: str) -> None:
     """Delete test files from media"""

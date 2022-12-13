@@ -1,8 +1,11 @@
-from rest_framework.generics import RetrieveAPIView, UpdateAPIView
+from rest_framework.generics import (RetrieveAPIView, UpdateAPIView, CreateAPIView)
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
-from .models import Profile
-from .serializers import ProfileSerializer, ProfileUpdateSerializer
+from .models import Profile, FriendRequest
+from .serializers import (ProfileSerializer, ProfileUpdateSerializer, FriendRequestCreateSerializer)
 from .permissions import IsProfileOwner
 
 
@@ -12,10 +15,80 @@ class ProfileDetailView(RetrieveAPIView):
     serializer_class = ProfileSerializer
     permission_classes = (IsAuthenticated, )
     lookup_field = 'pk'
-    
+
+
 class ProfileUpdateView(UpdateAPIView, RetrieveAPIView):
     """ Display profile data and update one """
     queryset = Profile.objects.all()
     serializer_class = ProfileUpdateSerializer
-    permission_classes = (IsAuthenticated, IsProfileOwner, )
+    permission_classes = (
+        IsAuthenticated,
+        IsProfileOwner,
+    )
     lookup_field = 'pk'
+
+
+class FriendRequestCreateView(CreateAPIView):
+    """ Create a friend request """
+    queryset = FriendRequest.objects.all()
+    serializer_class = FriendRequestCreateSerializer
+    permission_classes = (
+        IsAuthenticated,
+        IsProfileOwner,
+    )
+
+
+class FriendRequestAcceptView(APIView):
+    permission_classes = (
+        IsAuthenticated,
+    )
+    """ Accept a friend request and add user to friend list """
+
+    def get(self, request, user_pk, f_req_pk):
+        friend_req = FriendRequest.objects.filter(pk=f_req_pk).first()
+        
+        if request.user != friend_req.receiver:
+            return Response({'message': 'You can not perform this action.'}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        
+        if friend_req == None:
+            raise ValueError({'error': 'Friend request does not exist.'})
+
+        # add users to each other friend list
+        sender: object = friend_req.sender
+        receiver: object = friend_req.receiver
+
+        receiver.friends.add(sender)  # receiver adds sender to friend list
+        sender.friends.add(receiver)  # sender adds receiver to friend list
+
+        # delete friend request from db
+        friend_req.delete()
+
+        return Response({
+            'message':
+            f'{sender.username} added to your friend list.'
+        })
+        
+class FriendRequestRefuseView(APIView):
+    permission_classes = (
+        IsAuthenticated,
+    )
+    """ Refuse a friend request and delete request object """
+
+    def get(self, request, user_pk, f_req_pk):
+        friend_req = FriendRequest.objects.filter(pk=f_req_pk).first()
+        
+        if request.user != friend_req.receiver:
+            return Response({'message': 'You can not perform this action.'}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        
+        if friend_req == None:
+            raise ValueError({'error': 'Friend request does not exist.'})
+
+        # delete friend request from db
+        friend_req.delete()
+
+        return Response({
+            'message':
+            f'Friend request was refused.'
+        })
