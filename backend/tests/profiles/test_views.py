@@ -364,6 +364,8 @@ def test_friend_request_accept_loggen_in_as_receiver(user_payload: dict, user2_p
     client.post(reverse('login'), created_user, format='json')
     req = client.get(reverse('accept_friend_request', kwargs={'user_pk': user1.data['id'], 'f_req_pk': f_req.id}), format='json')
     assert req.data['message'] == f'{f_req.sender.username} added to your friend list.'
+    assert Profile.objects.get(id=user1.data['id']).friends.count() == 1
+    assert Profile.objects.get(id=user2.data['id']).friends.count() == 1
     assert req.status_code == 200
     
 @pytest.mark.django_db
