@@ -3,7 +3,7 @@ from django.urls import path
 from .authentication import RegisterView, LoginView, LogoutView
 from .views import (ProfileDetailView, ProfileUpdateView, 
                     FriendRequestCreateView, FriendRequestAcceptView, 
-                    FriendRequestRefuseView, RemoveFriendView)
+                    FriendRequestRefuseView, RemoveFriendView, ProfileFriendsListView, ProfilesListView)
 
 urlpatterns = [
     # profile auth
@@ -12,6 +12,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     
     # profile detail/update
+    path('all/', ProfilesListView.as_view(), name='profiles_list'),
     path('<str:pk>/', ProfileDetailView.as_view(), name='profile_detail'),
     path('<str:pk>/update/', ProfileUpdateView.as_view(), name='profile_update'),
     
@@ -22,7 +23,8 @@ urlpatterns = [
     path('<str:user_pk>/accept/<str:f_req_pk>/', FriendRequestAcceptView.as_view(), name='accept_friend_request'),
     path('<str:user_pk>/refuse/<str:f_req_pk>/', FriendRequestRefuseView.as_view(), name='refuse_friend_request'),
     
-    # remove from friends list
+    # friends list
+    path('<str:user_pk>/friends/', ProfileFriendsListView.as_view(), name='friends_list'),
     path('<str:user_pk>/remove/<str:friend_pk>/', RemoveFriendView.as_view(), name='remove_friend'),
     
 ]

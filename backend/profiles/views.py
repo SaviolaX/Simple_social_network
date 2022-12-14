@@ -1,18 +1,18 @@
-from rest_framework.generics import (RetrieveAPIView, UpdateAPIView, CreateAPIView)
+from rest_framework.generics import (RetrieveAPIView, UpdateAPIView, CreateAPIView, ListAPIView)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Profile, FriendRequest
-from .serializers import (ProfileSerializer, ProfileUpdateSerializer, FriendRequestCreateSerializer)
+from .serializers import (ProfileDetailSerializer, ProfileSerializer, FriendRequestCreateSerializer)
 from .permissions import IsProfileOwner
 
 
 class ProfileDetailView(RetrieveAPIView):
     """ Display profile data """
     queryset = Profile.objects.all()
-    serializer_class = ProfileSerializer
+    serializer_class = ProfileDetailSerializer
     permission_classes = (IsAuthenticated, )
     lookup_field = 'pk'
 
@@ -20,7 +20,7 @@ class ProfileDetailView(RetrieveAPIView):
 class ProfileUpdateView(UpdateAPIView, RetrieveAPIView):
     """ Display profile data and update one """
     queryset = Profile.objects.all()
-    serializer_class = ProfileUpdateSerializer
+    serializer_class = ProfileSerializer
     permission_classes = (
         IsAuthenticated,
         IsProfileOwner,
@@ -118,4 +118,22 @@ class RemoveFriendView(APIView):
         
         return Response(
             {'message': f'{friend.username} was deleted from friends list'})
-            
+
+class ProfileFriendsListView(APIView):
+    """ Friends list """
+    permission_classes = (IsAuthenticated, )
+    
+    def get(self, request, user_pk):
+        user = Profile.objects.filter(pk=user_pk).first()
+        if user == None:
+            raise ValueError({'error': 'User does not exist.'})
+        friends = user.friends.all()
+        serializer = ProfileSerializer(friends, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ProfilesListView(ListAPIView):
+    """ List of all profiles """
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
+    permission_classes = (IsAuthenticated, )

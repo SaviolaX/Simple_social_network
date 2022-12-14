@@ -508,8 +508,74 @@ def test_remove_friend_logged_in_profile_owner(user_payload:dict, user2_payload:
     created_user = dict(email=user_payload['email'], password=user_payload['password'])
     client.post(reverse('login'), created_user, format='json')
     res = client.get(reverse('remove_friend', kwargs={'user_pk': user1.pk, 'friend_pk': user2.pk}), format='json')
-    print(res.data)
-    print(res.status_code)
+    assert res.data['message'] == f"{user2.username} was deleted from friends list"
+    assert res.status_code == 200
+
+
+@pytest.mark.django_db
+def test_friend_list_not_logged_in(user_payload:dict) -> None:
+    client.post(reverse('register'), user_payload, format='json')
+    res = client.get(reverse('friends_list', kwargs={'user_pk': 1}), format='json')
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    
+
+@pytest.mark.django_db
+def test_friend_list_logged_in_as_user1(user_payload:dict, user2_payload:dict) -> None:
+    u1 = client.post(reverse('register'), user_payload, format='json')
+    u2 = client.post(reverse('register'), user2_payload, format='json')
+    user1 = Profile.objects.get(id=u1.data['id'])
+    user2 = Profile.objects.get(id=u2.data['id'])
+    user1.friends.add(user2)
+    user2.friends.add(user1)
+    assert user1.friends.all().count() == 1
+    assert user2.friends.all().count() == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('friends_list', kwargs={'user_pk': user1.pk}), format='json')
+    assert res.data[0]['email'] == user2.email
+    assert res.data[0]['username'] == user2.username
+    assert res.data[0]['image'] == None
+    assert res.status_code == 200
+    
+    
+@pytest.mark.django_db
+def test_friend_list_logged_in_as_user2(user_payload:dict, user2_payload:dict) -> None:
+    u1 = client.post(reverse('register'), user_payload, format='json')
+    u2 = client.post(reverse('register'), user2_payload, format='json')
+    user1 = Profile.objects.get(id=u1.data['id'])
+    user2 = Profile.objects.get(id=u2.data['id'])
+    user1.friends.add(user2)
+    user2.friends.add(user1)
+    assert user1.friends.all().count() == 1
+    assert user2.friends.all().count() == 1
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('friends_list', kwargs={'user_pk': user1.pk}), format='json')
+    assert res.data[0]['email'] == user2.email
+    assert res.data[0]['username'] == user2.username
+    assert res.data[0]['image'] == None
+    assert res.status_code == 200
+    
+
+@pytest.mark.django_db
+def test_profiles_list_not_logged_in() -> None:
+    res = client.get(reverse('profiles_list'), format='json')
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    
+    
+@pytest.mark.django_db
+def test_profiles_list_logged_in(user_payload:dict, user2_payload:dict) -> None:
+    client.post(reverse('register'), user_payload, format='json')
+    client.post(reverse('register'), user2_payload, format='json')
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('profiles_list'), format='json')
+    assert len(res.data) == Profile.objects.all().count()
+    assert res.status_code == 200
+
+    
 
 
 def delete_all_testing_files(profile_email: str) -> None:

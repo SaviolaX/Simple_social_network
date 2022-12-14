@@ -1,7 +1,8 @@
 from django.urls import reverse, resolve
 
 from profiles.authentication import RegisterView, LogoutView, LoginView
-from profiles.views import ProfileDetailView, ProfileUpdateView, FriendRequestCreateView, FriendRequestAcceptView, FriendRequestRefuseView
+from profiles.views import (ProfileDetailView, ProfileUpdateView, FriendRequestCreateView, FriendRequestAcceptView, FriendRequestRefuseView,
+                            ProfilesListView, ProfileFriendsListView, RemoveFriendView)
 
 def test_register_url():
     assert resolve(reverse('register')).func.view_class == RegisterView
@@ -26,3 +27,12 @@ def test_accept_friend_request_url():
     
 def test_refuse_friend_request_url():
     assert resolve(reverse('refuse_friend_request', kwargs={'user_pk': 1, 'f_req_pk': 1})).func.view_class == FriendRequestRefuseView
+    
+def test_profiles_list_url():
+    assert resolve(reverse('profiles_list')).func.view_class == ProfilesListView
+    
+def test_friends_list_url():
+    assert resolve(reverse('friends_list', kwargs={'user_pk': 1})).func.view_class == ProfileFriendsListView
+    
+def test_remove_friend_url():
+    assert resolve(reverse('remove_friend', kwargs={'user_pk': 1, 'friend_pk': 2})).func.view_class == RemoveFriendView

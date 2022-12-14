@@ -15,7 +15,7 @@ class FriendRequestSerializer(ModelSerializer):
 
     def get_sender(self, obj):
         profile = Profile.objects.filter(pk=obj.sender.pk).first()
-        serializer = ProfileFriendsListSerializer(profile)
+        serializer = ProfileSerializer(profile)
         return serializer.data
 
 
@@ -53,7 +53,7 @@ class FriendRequestCreateSerializer(ModelSerializer):
 #######################:: Profile detail/update ::##############################
 
 
-class ProfileUpdateSerializer(ModelSerializer):
+class ProfileSerializer(ModelSerializer):
     """ Serializer for Profile """
 
     class Meta:
@@ -61,14 +61,7 @@ class ProfileUpdateSerializer(ModelSerializer):
         fields = ('id', 'email', 'username', 'image')
 
 
-class ProfileFriendsListSerializer(ModelSerializer):
-
-    class Meta:
-        model = Profile
-        fields = ('id', 'email', 'username')
-
-
-class ProfileSerializer(ModelSerializer):
+class ProfileDetailSerializer(ModelSerializer):
     """ Serializer for Profile """
     friend_requests = SerializerMethodField()
     friends = SerializerMethodField()
@@ -80,7 +73,7 @@ class ProfileSerializer(ModelSerializer):
 
     def get_friends(self, obj):
         friend_list = Profile.objects.filter(pk=obj.pk).first().friends
-        serializer = ProfileFriendsListSerializer(friend_list, many=True)
+        serializer = ProfileSerializer(friend_list, many=True)
         return serializer.data
 
     def get_friend_requests(self, obj):
