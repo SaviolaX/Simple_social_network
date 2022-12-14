@@ -36,8 +36,7 @@ class FriendRequestCreateView(CreateAPIView):
         IsAuthenticated,
         IsProfileOwner,
     )
-
-
+    
 class FriendRequestAcceptView(APIView):
     permission_classes = (
         IsAuthenticated,
@@ -92,3 +91,31 @@ class FriendRequestRefuseView(APIView):
             'message':
             f'Friend request was refused.'
         })
+
+
+class RemoveFriendView(APIView):
+    """ Remove friend from friend list """
+    permission_classes = (IsAuthenticated, )
+    
+    def get(self, request, user_pk:str, friend_pk:str):
+        
+        if str(request.user.pk) != user_pk:
+            return Response({'message': 'You can not perform this action.'}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        
+        friend = Profile.objects.filter(pk=friend_pk).first()
+        if friend == None:
+            raise ValueError({'error': 'User does not exist.'})
+        
+        if friend not in request.user.friends.all():
+            return Response({'message': 'The user is not in your friend list.'}, 
+                            status=status.HTTP_403_FORBIDDEN) 
+        
+        # remove friend from friend list
+        request.user.friends.remove(friend)
+        # remove current user from friend's list of friends
+        friend.friends.remove(request.user)
+        
+        return Response(
+            {'message': f'{friend.username} was deleted from friends list'})
+            

@@ -38,6 +38,13 @@ def user2_payload() -> dict:
                    confirm_password='test_pass2')
     return payload
 
+@pytest.fixture
+def user3_payload() -> dict:
+    payload = dict(email='test_user3@email.com',
+                   password='test_pass3',
+                   confirm_password='test_pass3')
+    return payload
+
 
 # register view
 @pytest.mark.django_db
@@ -450,6 +457,59 @@ def test_friend_request_refuse_loggen_in_not_receiver(user_payload: dict, user2_
     assert req.data['message'] == 'You can not perform this action.'
     assert req.status_code == 403
 
+
+@pytest.mark.django_db
+def test_remove_friend_not_logged_in() -> None:
+    res = client.get(reverse('remove_friend', kwargs={'user_pk': 1, 'friend_pk': 2}), format='json')
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    
+@pytest.mark.django_db
+def test_remove_friend_logged_in_not_one_of_friends(user_payload:dict, user2_payload:dict, user3_payload:dict) -> None:
+    u1 = client.post(reverse('register'), user_payload, format='json')
+    u2 = client.post(reverse('register'), user2_payload, format='json')
+    u3 = client.post(reverse('register'), user3_payload, format='json')
+    user1 = Profile.objects.get(id=u1.data['id'])
+    user2 = Profile.objects.get(id=u2.data['id'])
+    user1.friends.add(user2)
+    user2.friends.add(user1)
+    created_user = dict(email=user3_payload['email'], password=user3_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('remove_friend', kwargs={'user_pk': 1, 'friend_pk': 2}), format='json')
+    assert res.data['message'] == 'You can not perform this action.'
+    assert res.status_code == 403
+    
+
+@pytest.mark.django_db
+def test_remove_friend_logged_in_not_profile_owner(user_payload:dict, user2_payload:dict) -> None:
+    u1 = client.post(reverse('register'), user_payload, format='json')
+    u2 = client.post(reverse('register'), user2_payload, format='json')
+    user1 = Profile.objects.get(id=u1.data['id'])
+    user2 = Profile.objects.get(id=u2.data['id'])
+    user1.friends.add(user2)
+    user2.friends.add(user1)
+    created_user = dict(email=user2_payload['email'], password=user2_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('remove_friend', kwargs={'user_pk': 1, 'friend_pk': 2}), format='json')
+    assert res.data['message'] == 'You can not perform this action.'
+    assert res.status_code == 403
+    
+    
+@pytest.mark.django_db
+def test_remove_friend_logged_in_profile_owner(user_payload:dict, user2_payload:dict) -> None:
+    u1 = client.post(reverse('register'), user_payload, format='json')
+    u2 = client.post(reverse('register'), user2_payload, format='json')
+    user1 = Profile.objects.get(id=u1.data['id'])
+    user2 = Profile.objects.get(id=u2.data['id'])
+    user1.friends.add(user2)
+    user2.friends.add(user1)
+    assert user1.friends.all().count() == 1
+    assert user2.friends.all().count() == 1
+    created_user = dict(email=user_payload['email'], password=user_payload['password'])
+    client.post(reverse('login'), created_user, format='json')
+    res = client.get(reverse('remove_friend', kwargs={'user_pk': user1.pk, 'friend_pk': user2.pk}), format='json')
+    print(res.data)
+    print(res.status_code)
 
 
 def delete_all_testing_files(profile_email: str) -> None:
