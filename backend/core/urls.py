@@ -10,6 +10,7 @@ from .yasp import urlpatterns as dock_urls
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('profiles/', include('profiles.urls')),
+    path('posts/', include('posts.urls')),
 ]
 
 urlpatterns += dock_urls

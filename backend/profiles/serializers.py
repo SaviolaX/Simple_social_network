@@ -1,6 +1,8 @@
 from rest_framework.serializers import (ModelSerializer, CharField, ValidationError, SerializerMethodField)
 
 from .models import Profile, FriendRequest
+from posts.models import Post
+from posts.serializers import PostSerializer
 
 ##########################:: Friend requests ::#################################
 
@@ -65,13 +67,21 @@ class ProfileDetailSerializer(ModelSerializer):
     """ Serializer for Profile """
     friend_requests = SerializerMethodField()
     friends = SerializerMethodField()
+    posts = SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = ('id', 'email', 'username', 'image', 'friends',
-                  'friend_requests')
+                  'friend_requests', 'posts')
+
+    def get_posts(self, obj):
+        """ Show only posts created by current user """
+        user_posts = Post.objects.filter(author=obj)
+        serializer = PostSerializer(user_posts, many=True)
+        return serializer.data
 
     def get_friends(self, obj):
+        """ Show only current user's friends """
         friend_list = Profile.objects.filter(pk=obj.pk).first().friends
         serializer = ProfileSerializer(friend_list, many=True)
         return serializer.data
