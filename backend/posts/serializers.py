@@ -28,15 +28,19 @@ class PostProfileSerializer(ModelSerializer):
     class Meta:
         model = Profile
         fields = ('id', 'email', 'username', 'image')
+  
         
-class PostListAllSerializer(ModelSerializer):
+class FriendsPostsListSerializer(ModelSerializer):
     """ Serializer for model Post """
     author = SerializerMethodField()
     class Meta:
         model = Post
         fields = ('id', 'author', 'entry', 'file', 'created_at')
         
+        
     def get_author(self, obj):
         author = Profile.objects.filter(pk=obj.author.pk).first()
         serializer = PostProfileSerializer(author)
         return serializer.data
+    
+
