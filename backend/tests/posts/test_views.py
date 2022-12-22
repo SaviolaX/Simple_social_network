@@ -242,7 +242,53 @@ def test_post_update_logged_in_not_exist_method_put(user_object: object, user_pa
     delete_all_testing_files(str(user_object.email))
     
 
+@pytest.mark.django_db
+def test_delete_post_not_logged_in(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+    assert Post.objects.all().count() == 0
+    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    assert Post.objects.all().count() == 1
+    res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.status_code == 403
+    delete_all_testing_files(str(user_object.email))
+    
 
+
+@pytest.mark.django_db
+def test_delete_post_logged_in_as_author(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+    assert Post.objects.all().count() == 0
+    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    assert Post.objects.all().count() == 1
+    client.post(reverse('login'), user_payload, format='json')
+    res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
+    assert res.data == None
+    assert res.status_code == 204
+    delete_all_testing_files(str(user_object.email))
+    
+@pytest.mark.django_db
+def test_delete_post_logged_in_not_as_author(user_object: object, user_object2: object, user_payload: dict, temporary_image: bytes) -> None:
+    user_payload['email'] = 'test_email2@email.com'
+    user_payload['password'] = 'test_pass2'
+    assert Post.objects.all().count() == 0
+    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    assert Post.objects.all().count() == 1
+    client.post(reverse('login'), user_payload, format='json')
+    res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
+    assert res.data['detail'] == 'You do not have permission to perform this action.'
+    assert res.status_code == 403
+    delete_all_testing_files(str(user_object.email))
+
+
+@pytest.mark.django_db
+def test_delete_post_logged_in_as_author_wrong_pk(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+    assert Post.objects.all().count() == 0
+    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    assert Post.objects.all().count() == 1
+    client.post(reverse('login'), user_payload, format='json')
+    res = client.delete(reverse('post_delete', kwargs={'pk': 99}))
+    assert res.data['detail'] == 'Not found.'
+    assert res.status_code == 404
+    delete_all_testing_files(str(user_object.email))
 
 
 

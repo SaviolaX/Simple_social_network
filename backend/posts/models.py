@@ -11,6 +11,8 @@ class Post(models.Model):
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, blank=False, null=False)
     entry = models.TextField(blank=True, null=True)
     file = models.ImageField(upload_to=get_upload_path, blank=True, null=True)
+    like = models.ManyToManyField(Profile, blank=True, related_name='Liked')
+    dislike = models.ManyToManyField(Profile, blank=True, related_name='Disliked')
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self) -> str:
