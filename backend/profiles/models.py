@@ -12,16 +12,26 @@ class Profile(AbstractUser):
     email = models.EmailField(max_length=255, unique=True)
     image = models.ImageField(upload_to=get_upload_path, null=True, blank=True)
     friends = models.ManyToManyField('Profile', blank=True)
-    
+
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', ]
-    
+    REQUIRED_FIELDS = [
+        'username',
+    ]
+
 
 class FriendRequest(models.Model):
     """ Profile to profile friend request table """
-    sender = models.ForeignKey(Profile, on_delete=models.CASCADE, blank=False, null=False, related_name='sender')
-    receiver = models.ForeignKey(Profile, on_delete=models.CASCADE, blank=False, null=False, related_name='receiver')
+    sender = models.ForeignKey(Profile,
+                               on_delete=models.CASCADE,
+                               blank=False,
+                               null=False,
+                               related_name='sender')
+    receiver = models.ForeignKey(Profile,
+                                 on_delete=models.CASCADE,
+                                 blank=False,
+                                 null=False,
+                                 related_name='receiver')
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self) -> str:
         return f"{self.sender.email} --> {self.receiver.email}: {self.created_at}"

@@ -1,7 +1,7 @@
 import pytest
 import sys, shutil, os
 from django.conf import settings
-from io import BytesIO 
+from io import BytesIO
 from PIL import Image
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.urls import reverse
@@ -16,68 +16,71 @@ client = APIClient()
 @pytest.fixture
 def temporary_image() -> bytes:
     io = BytesIO()
-    size = (200,200)
-    color = (255,0,0,0)
+    size = (200, 200)
+    color = (255, 0, 0, 0)
     image = Image.new("RGB", size, color)
     image.save(io, format='JPEG')
-    image_file = InMemoryUploadedFile(io, None, 'foo.jpg', 'jpeg', sys.getsizeof(io), None)
+    image_file = InMemoryUploadedFile(io, None, 'foo.jpg', 'jpeg',
+                                      sys.getsizeof(io), None)
     image_file.seek(0)
     return image_file
 
 
 @pytest.fixture
 def user_payload() -> dict:
-    payload = dict(
-        email='test_email@email.com',
-        password='test_pass'
-    )
+    payload = dict(email='test_email@email.com', password='test_pass')
     return payload
+
 
 @pytest.fixture
 def user_object() -> dict:
-    new_user = Profile.objects.create_user(
-        email='test_email@email.com',
-        username='test_user',
-        password='test_pass'
-    )
+    new_user = Profile.objects.create_user(email='test_email@email.com',
+                                           username='test_user',
+                                           password='test_pass')
     return new_user
+
 
 @pytest.fixture
 def user_object2() -> dict:
-    new_user = Profile.objects.create_user(
-        email='test_email2@email.com',
-        username='test_user2',
-        password='test_pass2'
-    )
+    new_user = Profile.objects.create_user(email='test_email2@email.com',
+                                           username='test_user2',
+                                           password='test_pass2')
     return new_user
+
 
 @pytest.fixture
 def user_object3() -> dict:
-    new_user = Profile.objects.create_user(
-        email='test_email3@email.com',
-        username='test_user3',
-        password='test_pass3'
-    )
+    new_user = Profile.objects.create_user(email='test_email3@email.com',
+                                           username='test_user3',
+                                           password='test_pass3')
     return new_user
 
 
 # friends post list
 @pytest.mark.django_db
-def test_post_list_not_logged_in(user_object: object, temporary_image: bytes) -> None:
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+def test_post_list_not_logged_in(user_object: object,
+                                 temporary_image: bytes) -> None:
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     res = client.get(reverse('posts_list'))
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
 
+
 @pytest.mark.django_db
-def test_friends_posts_list_logged_in(user_object: object, 
-                                      user_payload: dict, 
-                                      temporary_image: bytes, 
-                                      user_object2: object, 
+def test_friends_posts_list_logged_in(user_object: object, user_payload: dict,
+                                      temporary_image: bytes,
+                                      user_object2: object,
                                       user_object3: object) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry2')
-    Post.objects.create(author=user_object3, file=temporary_image, entry='test_entry3')
+    Post.objects.create(author=user_object2,
+                        file=temporary_image,
+                        entry='test_entry2')
+    Post.objects.create(author=user_object3,
+                        file=temporary_image,
+                        entry='test_entry3')
     assert Post.objects.all().count() == 2
     user_object.friends.add(user_object2)
     user_object2.friends.add(user_object)
@@ -95,28 +98,36 @@ def test_friends_posts_list_logged_in(user_object: object,
     delete_all_testing_files(str(user_object.email))
     delete_all_testing_files(str(user_object2.email))
     delete_all_testing_files(str(user_object3.email))
-    
-    
 
-# create post   
+
+# create post
 @pytest.mark.django_db
-def test_post_create_not_logged_in(user_object: object, temporary_image: bytes) -> None:
+def test_post_create_not_logged_in(user_object: object,
+                                   temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.post(reverse('post_create'))
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
     delete_all_testing_files(str(user_object.email))
-    
-    
-    
+
+
 @pytest.mark.django_db
-def test_post_create_logged_in_with_data(user_object: object, temporary_image: bytes, user_payload: dict) -> None:
-    new_post_payload = dict(author=user_object, file=temporary_image, entry='test_entry')
+def test_post_create_logged_in_with_data(user_object: object,
+                                         temporary_image: bytes,
+                                         user_payload: dict) -> None:
+    new_post_payload = dict(author=user_object,
+                            file=temporary_image,
+                            entry='test_entry')
     client.post(reverse('login'), user_payload, format='json')
     assert Post.objects.all().count() == 0
-    res = client.post(reverse('post_create'), new_post_payload, format='multipart')
+    res = client.post(reverse('post_create'),
+                      new_post_payload,
+                      format='multipart')
     assert Post.objects.all().count() == 1
     assert res.data['id'] == 1
     assert Post.objects.get(id=1).author.id == user_object.id
@@ -126,76 +137,102 @@ def test_post_create_logged_in_with_data(user_object: object, temporary_image: b
     assert res.data['file'] != None
     assert res.status_code == 201
     delete_all_testing_files(user_payload['email'])
-    
+
+
 @pytest.mark.django_db
-def test_post_create_logged_in_no_data(user_object: object, user_payload: dict) -> None:
+def test_post_create_logged_in_no_data(user_object: object,
+                                       user_payload: dict) -> None:
     empty_data = dict(entry='', file='')
     client.post(reverse('login'), user_payload, format='json')
     assert Post.objects.all().count() == 0
     res = client.post(reverse('post_create'), empty_data, format='multipart')
-    assert res.data['message'][0] == 'Fill up "entry" or "file" field to create a post.'
+    assert res.data['message'][
+        0] == 'Fill up "entry" or "file" field to create a post.'
     assert res.status_code == 400
     delete_all_testing_files(str(user_object.email))
-    
 
 
 # post detail
 @pytest.mark.django_db
-def test_post_detail_not_logged_in(user_object: object, temporary_image: bytes) -> None:
+def test_post_detail_not_logged_in(user_object: object,
+                                   temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.get(reverse('post_detail', kwargs={'pk': 1}))
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
     delete_all_testing_files(str(user_object.email))
-    
+
+
 @pytest.mark.django_db
-def test_post_detail_logged_in(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_post_detail_logged_in(user_object: object, user_payload: dict,
+                               temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
-    
+
     res = client.get(reverse('post_detail', kwargs={'pk': 1}))
-    assert res.data['id'] == 1 
+    assert res.data['id'] == 1
     assert res.data['entry'] == 'test_entry'
     assert res.data['file'] != None
     assert res.status_code == 200
     delete_all_testing_files(str(user_object.email))
-    
+
+
 @pytest.mark.django_db
-def test_post_detail_logged_in_not_exist(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_post_detail_logged_in_not_exist(user_object: object,
+                                         user_payload: dict,
+                                         temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
-    
+
     res = client.get(reverse('post_detail', kwargs={'pk': 2}))
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
     delete_all_testing_files(str(user_object.email))
-    
 
-# post update   
+
+# post update
 @pytest.mark.django_db
-def test_post_update_not_logged_in(user_object: object, temporary_image: bytes) -> None:
+def test_post_update_not_logged_in(user_object: object,
+                                   temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.put(reverse('post_update', kwargs={'pk': 1}))
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
     delete_all_testing_files(str(user_object.email))
-    
+
+
 @pytest.mark.django_db
-def test_post_update_logged_in_with_data_put_method(user_object: object, temporary_image: bytes, user_payload: dict) -> None:
+def test_post_update_logged_in_with_data_put_method(
+        user_object: object, temporary_image: bytes,
+        user_payload: dict) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     payload = dict(entry='new_entry', file='')
-    res = client.put(reverse('post_update', kwargs={'pk': 1}), payload, format='multipart')
+    res = client.put(reverse('post_update', kwargs={'pk': 1}),
+                     payload,
+                     format='multipart')
     assert res.data['id'] == 1
     assert res.data['entry'] == payload['entry']
     assert res.data['file'] == None
@@ -204,109 +241,155 @@ def test_post_update_logged_in_with_data_put_method(user_object: object, tempora
 
 
 @pytest.mark.django_db
-def test_post_update_logged_in_with_data_patch_method(user_object: object, temporary_image: bytes, user_payload: dict) -> None:
+def test_post_update_logged_in_with_data_patch_method(
+        user_object: object, temporary_image: bytes,
+        user_payload: dict) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     payload = dict(entry='new_entry')
-    res = client.patch(reverse('post_update', kwargs={'pk': 1}), payload, format='multipart')
+    res = client.patch(reverse('post_update', kwargs={'pk': 1}),
+                       payload,
+                       format='multipart')
     assert res.data['id'] == 1
     assert res.data['entry'] == payload['entry']
     assert res.data['file'] != None
     assert res.status_code == 200
     delete_all_testing_files(str(user_object.email))
 
+
 @pytest.mark.django_db
-def test_post_update_logged_in_not_exist_method_patch(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_post_update_logged_in_not_exist_method_patch(
+        user_object: object, user_payload: dict,
+        temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     payload = dict(entry='new_entry')
-    res = client.patch(reverse('post_update', kwargs={'pk': 99}), payload, format='multipart')
+    res = client.patch(reverse('post_update', kwargs={'pk': 99}),
+                       payload,
+                       format='multipart')
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
     delete_all_testing_files(str(user_object.email))
-    
+
+
 @pytest.mark.django_db
-def test_post_update_logged_in_not_exist_method_put(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_post_update_logged_in_not_exist_method_put(
+        user_object: object, user_payload: dict,
+        temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     payload = dict(entry='new_entry', file='')
-    res = client.put(reverse('post_update', kwargs={'pk': 99}), payload, format='multipart')
+    res = client.put(reverse('post_update', kwargs={'pk': 99}),
+                     payload,
+                     format='multipart')
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
     delete_all_testing_files(str(user_object.email))
-    
+
 
 @pytest.mark.django_db
-def test_delete_post_not_logged_in(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_delete_post_not_logged_in(user_object: object, user_payload: dict,
+                                   temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
     delete_all_testing_files(str(user_object.email))
-    
 
 
 @pytest.mark.django_db
-def test_delete_post_logged_in_as_author(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_delete_post_logged_in_as_author(user_object: object,
+                                         user_payload: dict,
+                                         temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
     assert res.data == None
     assert res.status_code == 204
     delete_all_testing_files(str(user_object.email))
-    
+
+
 @pytest.mark.django_db
-def test_delete_post_logged_in_not_as_author(user_object: object, user_object2: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_delete_post_logged_in_not_as_author(user_object: object,
+                                             user_object2: object,
+                                             user_payload: dict,
+                                             temporary_image: bytes) -> None:
     user_payload['email'] = 'test_email2@email.com'
     user_payload['password'] = 'test_pass2'
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.delete(reverse('post_delete', kwargs={'pk': 1}))
-    assert res.data['detail'] == 'You do not have permission to perform this action.'
+    assert res.data[
+        'detail'] == 'You do not have permission to perform this action.'
     assert res.status_code == 403
     delete_all_testing_files(str(user_object.email))
 
 
 @pytest.mark.django_db
-def test_delete_post_logged_in_as_author_wrong_pk(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_delete_post_logged_in_as_author_wrong_pk(
+        user_object: object, user_payload: dict,
+        temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    Post.objects.create(author=user_object,
+                        file=temporary_image,
+                        entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.delete(reverse('post_delete', kwargs={'pk': 99}))
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
     delete_all_testing_files(str(user_object.email))
-    
+
 
 @pytest.mark.django_db
-def test_like_post_not_logged_in(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_like_post_not_logged_in(user_object: object, user_payload: dict,
+                                 temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.get(reverse('post_like', kwargs={'pk': 1}))
     assert post.like.all().count() == 0
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
-    delete_all_testing_files(str(user_object.email)) 
-    
+    delete_all_testing_files(str(user_object.email))
+
 
 @pytest.mark.django_db
-def test_like_post_logged_in(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_like_post_logged_in(user_object2: object, user_object: object,
+                             user_payload: dict,
+                             temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.get(reverse('post_like', kwargs={'pk': 1}))
@@ -314,25 +397,35 @@ def test_like_post_logged_in(user_object2: object, user_object: object, user_pay
     assert post.like.all().first() == user_object
     assert res.data['detail'] == 'Success'
     assert res.status_code == 200
-    delete_all_testing_files(str(user_object2.email)) 
-    
+    delete_all_testing_files(str(user_object2.email))
+
+
 @pytest.mark.django_db
-def test_like_post_logged_in_post_not_exist(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_like_post_logged_in_post_not_exist(user_object2: object,
+                                            user_object: object,
+                                            user_payload: dict,
+                                            temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.get(reverse('post_like', kwargs={'pk': 99}))
     assert post.like.all().count() == 0
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
-    delete_all_testing_files(str(user_object2.email)) 
-    
+    delete_all_testing_files(str(user_object2.email))
+
 
 @pytest.mark.django_db
-def test_like_post_logged_in_when_dislike_exist(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_like_post_logged_in_when_dislike_exist(
+        user_object2: object, user_object: object, user_payload: dict,
+        temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     post.dislike.add(user_object)
     assert Post.objects.all().count() == 1
     assert post.dislike.all().count() == 1
@@ -345,26 +438,35 @@ def test_like_post_logged_in_when_dislike_exist(user_object2: object, user_objec
     assert res.status_code == 200
     assert post.dislike.all().count() == 0
     delete_all_testing_files(str(user_object2.email))
-    
-    
+
+
 #################################################################################
 
+
 @pytest.mark.django_db
-def test_dislike_post_not_logged_in(user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_dislike_post_not_logged_in(user_object: object, user_payload: dict,
+                                    temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     res = client.get(reverse('post_dislike', kwargs={'pk': 1}))
     assert post.dislike.all().count() == 0
-    assert res.data['detail'] == 'Authentication credentials were not provided.'
+    assert res.data[
+        'detail'] == 'Authentication credentials were not provided.'
     assert res.status_code == 403
-    delete_all_testing_files(str(user_object.email)) 
-    
+    delete_all_testing_files(str(user_object.email))
+
 
 @pytest.mark.django_db
-def test_dislike_post_logged_in(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_dislike_post_logged_in(user_object2: object, user_object: object,
+                                user_payload: dict,
+                                temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.get(reverse('post_dislike', kwargs={'pk': 1}))
@@ -372,25 +474,35 @@ def test_dislike_post_logged_in(user_object2: object, user_object: object, user_
     assert post.dislike.all().first() == user_object
     assert res.data['detail'] == 'Success'
     assert res.status_code == 200
-    delete_all_testing_files(str(user_object2.email)) 
-    
+    delete_all_testing_files(str(user_object2.email))
+
+
 @pytest.mark.django_db
-def test_dislike_post_logged_in_post_not_exist(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_dislike_post_logged_in_post_not_exist(user_object2: object,
+                                               user_object: object,
+                                               user_payload: dict,
+                                               temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     assert Post.objects.all().count() == 1
     client.post(reverse('login'), user_payload, format='json')
     res = client.get(reverse('post_dislike', kwargs={'pk': 99}))
     assert post.dislike.all().count() == 0
     assert res.data['detail'] == 'Not found.'
     assert res.status_code == 404
-    delete_all_testing_files(str(user_object2.email)) 
-    
+    delete_all_testing_files(str(user_object2.email))
+
 
 @pytest.mark.django_db
-def test_dislike_post_logged_in_when_dislike_exist(user_object2: object, user_object: object, user_payload: dict, temporary_image: bytes) -> None:
+def test_dislike_post_logged_in_when_dislike_exist(
+        user_object2: object, user_object: object, user_payload: dict,
+        temporary_image: bytes) -> None:
     assert Post.objects.all().count() == 0
-    post = Post.objects.create(author=user_object2, file=temporary_image, entry='test_entry')
+    post = Post.objects.create(author=user_object2,
+                               file=temporary_image,
+                               entry='test_entry')
     post.like.add(user_object)
     assert Post.objects.all().count() == 1
     assert post.like.all().count() == 1
@@ -403,17 +515,13 @@ def test_dislike_post_logged_in_when_dislike_exist(user_object2: object, user_ob
     assert res.status_code == 200
     assert post.like.all().count() == 0
     delete_all_testing_files(str(user_object2.email))
-    
-
-
-
-
 
 
 def delete_all_testing_files(profile_email: str) -> None:
     """Delete test files from media"""
     try:
-        path_to_profile_images = os.path.join(settings.MEDIA_ROOT, f'profile\\{profile_email}')
+        path_to_profile_images = os.path.join(settings.MEDIA_ROOT,
+                                              f'profile\\{profile_email}')
         shutil.rmtree(path_to_profile_images, ignore_errors=True)
     except OSError:
         pass

@@ -1,4 +1,5 @@
-from rest_framework.serializers import (ModelSerializer, CharField, ValidationError, SerializerMethodField)
+from rest_framework.serializers import (ModelSerializer, CharField,
+                                        ValidationError, SerializerMethodField)
 
 from .models import Profile, FriendRequest
 from posts.models import Post

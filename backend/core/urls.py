@@ -11,6 +11,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('profiles/', include('profiles.urls')),
     path('posts/', include('posts.urls')),
+    path('posts/', include('comments.urls')),
 ]
 
 urlpatterns += dock_urls
