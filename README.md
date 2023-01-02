@@ -23,3 +23,6 @@ Installation:
   
 Run test:
   in terminal ```pytest``` or ```pytest -s``` - to see error details
+  
+
+HTML file ```backend/to_test_chat.html``` to show JQuery code used to test chat on frontend 
