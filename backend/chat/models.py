@@ -5,10 +5,10 @@ from django.conf import settings
 class Room(models.Model):
     """ Room db table """
     initiator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="conver_starter"
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=False, related_name="conver_starter"
     )
     receiver = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="conver_participant"
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=False, related_name="conver_participant"
     )
     start_time = models.DateTimeField(auto_now_add=True)
     

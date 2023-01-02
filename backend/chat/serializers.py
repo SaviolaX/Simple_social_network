@@ -35,9 +35,9 @@ class CreateRoomSerializer(ModelSerializer):
         model = Room
         fields = ['id', 'initiator', 'receiver']
         
-    def validate(self, attrs):
-        initiator = attrs['initiator']
-        receiver = attrs['receiver']
+    def validate(self, data):
+        initiator = data['initiator']
+        receiver = data['receiver']
         
         # check if any chat between users exist
         chats = Room.objects.filter(Q(initiator=initiator, receiver=receiver) 
@@ -46,7 +46,8 @@ class CreateRoomSerializer(ModelSerializer):
         if chats.count() != 0:
             raise ValidationError({'detail': 'Chat with this user already exist'})
             
-        return attrs
+        return data
+
         
 
 class RoomSerializer(ModelSerializer):

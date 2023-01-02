@@ -27,6 +27,8 @@ class ChatRoomView(RetrieveAPIView):
 
 class MyChatsListView(APIView):
     """ Retrieve a list of all chat rooms where current user participate """
+    permission_classes = (IsAuthenticated, )
+    
     def get(self, request):
         my_chats = Room.objects.filter(Q(initiator=request.user) | Q(receiver=request.user))
         serializer = RoomsListSerializer(my_chats, many=True)

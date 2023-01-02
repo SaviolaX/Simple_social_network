@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat room{% endblock %}
+
+{% block content %}
+    
+    {% if request.user == room.initiator %}
+        <h1 align="center">Chat with {{ room.receiver }}</h1>
+    {% elif request.user == room.receiver %}
+        <h1 align="center">Chat with {{ room.initiator }}</h1>
+    {% endif %}
+
+    <div id="chat-log" style="width: 700px; height: 500px; background-color: lightgrey; margin: auto; overflow: auto; overflow-y: visible;">
+
+    </div>
+    <div style="width: 700px; background-color: lightgrey; margin: auto">
+        <form method="post">
+            {% csrf_token %}
+            <input id="chat-message-input" type="text" style="width: 91%;">
+            <button id="chat-message-submit" type="submit">Send</button>
+        </form>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+
+    <script
+        src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+        crossorigin="anonymous"></script>
+
+    <script>
+        const room_pk = "{{ room.pk }}";
+        const current_user_pk = "{{ user.pk }}"
+        const request_id = "{{ request.sessions.session_key }}";
+
+        const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/`);
+
+
+        chatSocket.onopen = function(){
+            chatSocket.send(
+                JSON.stringify({
+                    pk:room_pk,
+                    action:"join_room",
+                    request_id:request_id,
+                })
+            );
+            chatSocket.send(
+                    JSON.stringify({
+                        pk:room_pk,
+                        action:"retrieve",
+                        request_id:request_id,
+                    })
+                );
+
+            chatSocket.send(
+                JSON.stringify({
+                    pk:room_pk,
+                    action:"subscribe_to_messages_in_room",
+                    request_id:request_id,
+                })
+            );
+
+            chatSocket.send(
+                JSON.stringify({
+                    pk:room_pk,
+                    action:"subscribe_instance",
+                    request_id:request_id,
+                })
+            );
+        }
+
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            switch (data.action) {
+                case "retrieve":
+                    console.log(data.data)
+                    for (let mess of data.data.message_set) {
+                        if (mess.sender == current_user_pk){ 
+                             $('#chat-log').append(
+                                 '<p style="text-align: right; background-color: black; color: white;">'+ mess.text +'</p>'
+                             )
+                         } else {
+                             $('#chat-log').append(
+                                 '<p style="text-align: left; background-color: blue; color: white;">'+ mess.text +'</p>'
+                             )
+                         }
+                    }
+                    break;
+                case "create":
+                    console.log(data.action, data.data)
+                    $('#chat-log').append(
+                        '<p style="text-align: left; background-color: blue; color: white;">'+ data.data.text +'</p>'
+                    )
+                    break;
+                default:
+                    break;
+            }
+            
+        };
+
+    chatSocket.onclose = function (e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+
+    $('#chat-message-input').focus();
+    $('#chat-message-input').on('keyup', function (e) {
+        if (e.keyCode === 13) {  // enter, return
+            document.querySelector('#chat-message-submit').click();
+        }
+    });
+    $('#chat-message-submit').on('click', function (e) {
+        const message_text = $('#chat-message-input').val();
+        const message_sender = "{{ user }}";
+        const current_room = room_pk;
+        chatSocket.send(JSON.stringify({
+            message: {
+                'text': message_text, 
+                'sender': message_sender,
+                'room': current_room
+            },
+            action: "create_message",
+            request_id: request_id,
+        }));
+        $('#chat-message-input').val('');
+    });
+        
+
+    </script>
+
+{% endblock %}
